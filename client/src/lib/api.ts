@@ -1,0 +1,13 @@
+const API = "/api";
+export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${API}${path}`, { ...options, headers: { "Content-Type":"application/json", ...(token ? { Authorization:`Bearer ${token}` }:{}), ...(options.headers ?? {}) }});
+  const data = await res.json().catch(()=>({}));
+  if (res.status === 401) {
+    localStorage.removeItem("token");
+    window.location.href = "/login";
+    throw new Error("Session expired");
+  }
+  if (!res.ok) throw new Error(data.error ?? "Request failed");
+  return data;
+}

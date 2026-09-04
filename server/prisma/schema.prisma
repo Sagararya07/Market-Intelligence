@@ -1,0 +1,711 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  ANALYST
+  SALES
+  VIEWER
+}
+
+enum SourceType {
+  CSV
+  LINKEDIN
+  WEBSITE
+  JOB_PORTAL
+  MARKETPLACE
+  SEARCH
+  NEWS
+  RFP
+  MANUAL
+  API
+}
+
+enum SignalType {
+  BUYING_SIGNAL
+  SELLING_SIGNAL
+  REQUIREMENT_SIGNAL
+  HIRING_SIGNAL
+  FUNDING_SIGNAL
+  EXPANSION_SIGNAL
+  TECHNOLOGY_SIGNAL
+  PRODUCT_LAUNCH
+  PARTNERSHIP
+  RFP
+  RFQ
+  TENDER
+  SEARCH_INTENT
+  PAIN_POINT
+  JOB_CHANGE
+  WEBSITE_CHANGE
+  COMPETITOR_SIGNAL
+  OTHER
+}
+
+enum IntentType {
+  BUY
+  SELL
+  BOTH
+  REQUIREMENT
+  UNKNOWN
+}
+
+enum IntentLevel {
+  HOT
+  WARM
+  COLD
+  UNKNOWN
+}
+
+enum RequirementStatus {
+  UNKNOWN
+  EXPLORING
+  POTENTIAL
+  ACTIVE
+  URGENT
+  FULFILLED
+  CLOSED
+}
+
+enum OpportunityType {
+  BUYING_OPPORTUNITY
+  SELLING_OPPORTUNITY
+  PARTNERSHIP
+  VENDOR_MATCH
+  DEMAND_SUPPLY_MATCH
+  STRATEGIC_OPPORTUNITY
+  UNKNOWN
+}
+
+enum OpportunityClass {
+  HOT
+  WARM
+  COLD
+  NURTURE
+}
+
+enum OpportunityStatus {
+  OPEN
+  WORKING
+  QUALIFIED
+  PROPOSAL
+  WON
+  LOST
+  NURTURE
+}
+
+enum RecordType {
+  SOURCE_FACT
+  USER_PROVIDED
+  CALCULATED
+  AI_INFERENCE
+  AI_CLASSIFICATION
+}
+
+model Organization {
+  id            String         @id @default(cuid())
+  name          String
+  slug          String         @unique
+  logoUrl       String?
+  website       String?
+  country       String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  users         User[]
+  accounts      Account[]
+  icpProfiles   IcpProfile[]
+  scoringConfig ScoringConfig?
+  signals       MarketSignal[]
+  opportunities Opportunity[]
+  imports       ImportJob[]
+  auditLogs     AuditLog[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  organizationId String
+  firstName      String
+  lastName       String
+  email          String       @unique
+  passwordHash   String
+  role           UserRole     @default(ANALYST)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  auditLogs      AuditLog[]
+}
+
+model Account {
+  id                    String                 @id @default(cuid())
+  organizationId        String
+  accountId             String
+  companyName           String
+  legalName             String?
+  website               String?
+  linkedinUrl           String?
+  country               String?
+  state                 String?
+  city                  String?
+  address               String?
+  postalCode            String?
+  industry              String?
+  subIndustry           String?
+  businessModel         String?
+  companyType           String?
+  employeeCount         Int?
+  employeeRange         String?
+  estimatedRevenue      Float?
+  revenueCurrency       String?
+  revenueRange          String?
+  foundedYear           Int?
+  annualRevenue         Float?
+  totalFunding          Float?
+  latestFunding         Float?
+  latestFundingDate     DateTime?
+  growthStage           String?
+  businessStatus        String?
+  description           String?
+  valueProposition      String?
+  targetCustomer        String?
+  productServiceSummary String?
+  source                String?
+  sourceRecordId        String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts              Contact[]
+  sources               AccountDataSource[]
+  technologies          AccountTechnology[]
+  signals               MarketSignal[]
+  buyerIntents          BuyerIntent[]
+  sellerIntents         SellerIntent[]
+  requirements          Requirement[]
+  painPoints            PainPoint[]
+  growthSignals         GrowthSignal[]
+  intelligence          AccountIntelligence?
+  productProfile        ProductServiceProfile?
+  assessments           IcpAssessment[]
+  strategicIntent       StrategicIntent?
+  diagnosis             Diagnosis?
+  opportunities         Opportunity[]
+  events                AccountEvent[]
+  evidence              Evidence[]
+  buyerMatches          OpportunityMatch[]     @relation("buyer")
+  sellerMatches         OpportunityMatch[]     @relation("seller")
+}
+
+model Contact {
+  id                String         @id @default(cuid())
+  accountId         String
+  firstName         String?
+  lastName          String?
+  fullName          String
+  jobTitle          String?
+  seniority         String?
+  department        String?
+  email             String?
+  emailStatus       String?
+  phone             String?
+  linkedinUrl       String?
+  isDecisionMaker   Boolean        @default(false)
+  decisionAuthority String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  account           Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  signals           MarketSignal[]
+  requirements      Requirement[]
+  opportunities     Opportunity[]
+}
+
+model AccountDataSource {
+  id             String     @id @default(cuid())
+  accountId      String
+  sourceType     SourceType
+  sourceName     String
+  sourceRecordId String?
+  rawData        Json
+  capturedAt     DateTime   @default(now())
+  createdAt      DateTime   @default(now())
+  account        Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model Technology {
+  id        String              @id @default(cuid())
+  name      String              @unique
+  category  String?
+  createdAt DateTime            @default(now())
+  accounts  AccountTechnology[]
+}
+
+model AccountTechnology {
+  id              String     @id @default(cuid())
+  accountId       String
+  technologyId    String
+  confidence      Float
+  firstDetectedAt DateTime   @default(now())
+  lastDetectedAt  DateTime   @default(now())
+  source          String?
+  account         Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  technology      Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, technologyId])
+}
+
+model MarketSignal {
+  id                String                @id @default(cuid())
+  organizationId    String
+  accountId         String?
+  contactId         String?
+  sourceType        SourceType
+  sourceName        String
+  sourceUrl         String?
+  sourceExternalId  String?
+  signalType        SignalType
+  signalSubtype     String?
+  title             String
+  content           String?
+  summary           String?
+  publishedAt       DateTime?
+  detectedAt        DateTime              @default(now())
+  language          String?
+  rawContent        String?
+  normalizedContent String?
+  signalStrength    Float
+  confidence        Float
+  status            String                @default("NEW")
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account           Account?              @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact           Contact?              @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  classification    SignalClassification?
+  buyerIntent       BuyerIntent?
+  sellerIntent      SellerIntent?
+  requirement       Requirement?
+  painPoint         PainPoint?
+  growthSignal      GrowthSignal?
+  evidence          Evidence[]
+  events            AccountEvent[]
+  opportunityLinks  OpportunitySignal[]
+}
+
+model SignalClassification {
+  id               String       @id @default(cuid())
+  signalId         String       @unique
+  intentType       IntentType
+  confidence       Float
+  reasoningSummary String
+  detectedKeywords String[]
+  semanticEvidence String?
+  createdAt        DateTime     @default(now())
+  signal           MarketSignal @relation(fields: [signalId], references: [id], onDelete: Cascade)
+}
+
+model BuyerIntent {
+  id                    String       @id @default(cuid())
+  accountId             String
+  signalId              String       @unique
+  score                 Float
+  level                 IntentLevel
+  intentCategory        String?
+  requirementSummary    String?
+  urgency               String?
+  timeline              String?
+  budgetMin             Float?
+  budgetMax             Float?
+  budgetCurrency        String?
+  decisionMakerDetected Boolean      @default(false)
+  confidence            Float
+  firstDetectedAt       DateTime     @default(now())
+  lastDetectedAt        DateTime     @default(now())
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  account               Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  signal                MarketSignal @relation(fields: [signalId], references: [id], onDelete: Cascade)
+}
+
+model SellerIntent {
+  id               String       @id @default(cuid())
+  accountId        String
+  signalId         String       @unique
+  score            Float
+  level            IntentLevel
+  productSummary   String?
+  serviceSummary   String?
+  targetBuyer      String?
+  targetIndustry   String?
+  targetGeography  String?
+  distributionNeed String?
+  partnershipNeed  String?
+  confidence       Float
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  account          Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  signal           MarketSignal @relation(fields: [signalId], references: [id], onDelete: Cascade)
+}
+
+model Requirement {
+  id                String             @id @default(cuid())
+  accountId         String
+  contactId         String?
+  signalId          String?            @unique
+  requirementType   String
+  category          String?
+  subcategory       String?
+  title             String
+  description       String?
+  problemStatement  String?
+  desiredSolution   String?
+  budgetMin         Float?
+  budgetMax         Float?
+  budgetCurrency    String?
+  timeline          String?
+  urgency           String?
+  decisionMaker     String?
+  decisionAuthority String?
+  status            RequirementStatus  @default(UNKNOWN)
+  confidence        Float
+  firstDetectedAt   DateTime           @default(now())
+  lastDetectedAt    DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  account           Account            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact           Contact?           @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  signal            MarketSignal?      @relation(fields: [signalId], references: [id], onDelete: SetNull)
+  matches           OpportunityMatch[]
+}
+
+model PainPoint {
+  id           String        @id @default(cuid())
+  accountId    String
+  signalId     String?       @unique
+  category     String
+  title        String
+  description  String?
+  severity     String
+  confidence   Float
+  detectedFrom String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  signal       MarketSignal? @relation(fields: [signalId], references: [id], onDelete: SetNull)
+}
+
+model GrowthSignal {
+  id              String       @id @default(cuid())
+  accountId       String
+  signalId        String       @unique
+  growthTrigger   String
+  growthStage     String?
+  growthDirection String?
+  description     String?
+  confidence      Float
+  detectedAt      DateTime     @default(now())
+  createdAt       DateTime     @default(now())
+  account         Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  signal          MarketSignal @relation(fields: [signalId], references: [id], onDelete: Cascade)
+}
+
+model AccountIntelligence {
+  id                  String    @id @default(cuid())
+  accountId           String    @unique
+  businessModel       String?
+  growthStage         String?
+  businessStability   String?
+  marketingMaturity   String?
+  technologyMaturity  String?
+  customerValue       Float?
+  acv                 Float?
+  aov                 Float?
+  ltv                 Float?
+  marketingSpend      Float?
+  paidMediaSpend      Float?
+  internalTeamSize    Int?
+  externalAgencyUsage String?
+  salesCycle          String?
+  cac                 Float?
+  growthObjective     String?
+  growthHorizon       String?
+  growthAmbition      String?
+  primaryProblem      String?
+  primaryOpportunity  String?
+  decisionMaker       String?
+  decisionAuthority   String?
+  lastAnalyzedAt      DateTime?
+  confidence          Float?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  account             Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model ProductServiceProfile {
+  id                        String   @id @default(cuid())
+  accountId                 String   @unique
+  offeringType              String?
+  primaryOffering           String?
+  secondaryOfferings        String?
+  revenueGeneratingOffering String?
+  targetCustomer            String?
+  customerType              String?
+  customerSegment           String?
+  valueProposition          String?
+  problemSolved             String?
+  differentiation           String?
+  marketPotential           String?
+  competitiveEnvironment    String?
+  internationalPotential    String?
+  confidence                Float?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  account                   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model IcpProfile {
+  id             String          @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rules          IcpRule[]
+  assessments    IcpAssessment[]
+}
+
+model IcpRule {
+  id           String     @id @default(cuid())
+  icpProfileId String
+  dimension    String
+  ruleType     String
+  fieldName    String
+  operator     String
+  value        Json
+  weight       Float
+  isHardGate   Boolean    @default(false)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  icpProfile   IcpProfile @relation(fields: [icpProfileId], references: [id], onDelete: Cascade)
+}
+
+model IcpAssessment {
+  id                   String     @id @default(cuid())
+  accountId            String
+  icpProfileId         String
+  marketFitScore       Float
+  businessScaleScore   Float
+  economicFitScore     Float
+  growthCapacityScore  Float
+  buyingReadinessScore Float
+  commercialFitScore   Float
+  overallScore         Float
+  classification       String
+  hardGatePassed       Boolean
+  explanation          String
+  evaluatedAt          DateTime   @default(now())
+  createdAt            DateTime   @default(now())
+  account              Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  icpProfile           IcpProfile @relation(fields: [icpProfileId], references: [id], onDelete: Cascade)
+}
+
+model StrategicIntent {
+  id                String   @id @default(cuid())
+  accountId         String   @unique
+  whyNow            String?
+  growthObjective   String?
+  desiredOutcome    String?
+  selfIdentifiedGap String?
+  expectedOutcome   String?
+  successDefinition String?
+  confidence        Float?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  account           Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model Diagnosis {
+  id                 String               @id @default(cuid())
+  accountId          String               @unique
+  overallHealthScore Float
+  summary            String?
+  primaryProblem     String?
+  primaryOpportunity String?
+  priority           String?
+  generatedAt        DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  account            Account              @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  dimensions         DiagnosisDimension[]
+}
+
+model DiagnosisDimension {
+  id          String    @id @default(cuid())
+  diagnosisId String
+  dimension   String
+  score       Float
+  status      String
+  finding     String?
+  evidence    String?
+  priority    String?
+  createdAt   DateTime  @default(now())
+  diagnosis   Diagnosis @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+}
+
+model Opportunity {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  accountId          String
+  contactId          String?
+  opportunityType    OpportunityType
+  title              String
+  summary            String?
+  buyerIntentScore   Float
+  sellerIntentScore  Float
+  requirementScore   Float
+  fitScore           Float
+  economicScore      Float
+  readinessScore     Float
+  growthScore        Float
+  confidenceScore    Float
+  opportunityScore   Float
+  classification     OpportunityClass
+  estimatedValue     Float?
+  currency           String?
+  urgency            String?
+  timeline           String?
+  recommendedAction  String?
+  recommendedContact String?
+  status             OpportunityStatus   @default(OPEN)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account            Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact            Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  signals            OpportunitySignal[]
+  evidence           Evidence[]
+}
+
+model Evidence {
+  id            String        @id @default(cuid())
+  accountId     String
+  signalId      String?
+  entityType    String
+  entityId      String
+  evidenceType  String
+  title         String
+  description   String?
+  sourceName    String?
+  sourceUrl     String?
+  observedValue String?
+  inferredValue String?
+  confidence    Float
+  capturedAt    DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  account       Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  signal        MarketSignal? @relation(fields: [signalId], references: [id], onDelete: SetNull)
+  opportunity   Opportunity?  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+}
+
+model OpportunitySignal {
+  id             String       @id @default(cuid())
+  opportunityId  String
+  signalId       String
+  relevanceScore Float
+  opportunity    Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  signal         MarketSignal @relation(fields: [signalId], references: [id], onDelete: Cascade)
+
+  @@unique([opportunityId, signalId])
+}
+
+model OpportunityMatch {
+  id                 String       @id @default(cuid())
+  buyerAccountId     String
+  sellerAccountId    String
+  buyerRequirementId String?
+  sellerProduct      String?
+  sellerService      String?
+  matchScore         Float
+  productMatch       Float
+  industryMatch      Float
+  geographyMatch     Float
+  budgetMatch        Float
+  timelineMatch      Float
+  reason             String?
+  confidence         Float
+  status             String       @default("NEW")
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  buyerAccount       Account      @relation("buyer", fields: [buyerAccountId], references: [id], onDelete: Cascade)
+  sellerAccount      Account      @relation("seller", fields: [sellerAccountId], references: [id], onDelete: Cascade)
+  buyerRequirement   Requirement? @relation(fields: [buyerRequirementId], references: [id], onDelete: SetNull)
+}
+
+model AccountEvent {
+  id          String        @id @default(cuid())
+  accountId   String
+  signalId    String?
+  eventType   String
+  title       String
+  description String?
+  eventDate   DateTime
+  importance  Float
+  confidence  Float
+  createdAt   DateTime      @default(now())
+  account     Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  signal      MarketSignal? @relation(fields: [signalId], references: [id], onDelete: SetNull)
+}
+
+model ScoringConfig {
+  id                String       @id @default(cuid())
+  organizationId    String       @unique
+  buyerIntentWeight Float        @default(0.25)
+  requirementWeight Float        @default(0.20)
+  fitWeight         Float        @default(0.20)
+  readinessWeight   Float        @default(0.15)
+  economicWeight    Float        @default(0.10)
+  growthWeight      Float        @default(0.05)
+  evidenceWeight    Float        @default(0.05)
+  hotThreshold      Float        @default(80)
+  warmThreshold     Float        @default(60)
+  coldThreshold     Float        @default(40)
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model ImportJob {
+  id               String       @id @default(cuid())
+  organizationId   String
+  fileName         String
+  totalRecords     Int          @default(0)
+  validRecords     Int          @default(0)
+  duplicateRecords Int          @default(0)
+  errorRecords     Int          @default(0)
+  status           String       @default("PREVIEW")
+  columnMapping    Json?
+  errors           Json?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String?
+  action         String
+  entityType     String
+  entityId       String?
+  oldValue       Json?
+  newValue       Json?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
