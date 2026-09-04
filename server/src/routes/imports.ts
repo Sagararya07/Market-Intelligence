@@ -19,19 +19,20 @@ importRouter.post("/preview", async (req: AuthRequest, res, next) => {
     const columns = parsed.meta.fields ?? [];
     const mapping: Record<string,string> = {};
     const targets: Record<string,string[]> = {
-      companyName: ["company","company name","company_name","account","account name"],
-      website: ["website","domain","url"],
-      companyLinkedin: ["company linkedin url", "company linkedin", "linkedin company url"],
-      industry: ["industry","sector"],
-      country: ["country"],
-      city: ["city"],
-      employeeCount: ["employees","employee count","employee_count", "# employees"],
-      revenueRange: ["revenue","revenue range", "annual revenue"],
-      fullName: ["contact","contact name","full name", "first name"],
-      email: ["email","contact email"],
-      phone: ["corporate phone", "phone", "phone number", "contact number"],
-      contactLinkedin: ["person linkedin url", "person linkedin", "linkedin url", "contact linkedin"],
-      jobTitle: ["title","job title","job_title"]
+      companyName: ["company","company name","company_name","account","account name","organization","organisation","business","business name","client","client name", "company name for emails"],
+      website: ["website","domain","url","company website","company domain"],
+      companyLinkedin: ["company linkedin url", "company linkedin", "linkedin company url", "linkedin url", "linkedin"],
+      industry: ["industry","sector","category","vertical"],
+      country: ["country","nation", "company country"],
+      state: ["state", "company state", "region", "province"],
+      city: ["city","location", "company city"],
+      employeeCount: ["employees","employee count","employee_count", "# employees", "company size", "size"],
+      revenueRange: ["revenue","revenue range", "annual revenue", "estimated revenue", "sales"],
+      fullName: ["contact","contact name","full name", "first name", "name", "person", "lead name", "lead"],
+      email: ["email","contact email", "email address", "work email"],
+      phone: ["corporate phone", "company phone", "phone", "phone number", "contact number", "mobile", "cell", "work phone", "mobile phone", "other phone"],
+      contactLinkedin: ["person linkedin url", "person linkedin", "contact linkedin", "contact linkedin url"],
+      jobTitle: ["title","job title","job_title", "designation", "position", "role"]
     };
     for (const [target, aliases] of Object.entries(targets)) {
       const found = columns.find((c: string) => aliases.includes(c.toLowerCase().trim()));
@@ -58,7 +59,9 @@ importRouter.post("/execute", async (req: AuthRequest, res, next) => {
         website: row[mapping.website] || undefined, 
         linkedinUrl: row[mapping.companyLinkedin] || undefined,
         industry: row[mapping.industry] || undefined,
-        country: row[mapping.country] || undefined, city: row[mapping.city] || undefined,
+        country: row[mapping.country] || undefined, 
+        state: row[mapping.state] || undefined,
+        city: row[mapping.city] || undefined,
         employeeCount: row[mapping.employeeCount] ? Number(row[mapping.employeeCount]) || undefined : undefined,
         revenueRange: row[mapping.revenueRange] || undefined, source: "CSV"
       }});

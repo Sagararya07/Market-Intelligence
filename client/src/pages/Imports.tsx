@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { api } from "../lib/api";
 import { UploadCloud, FileText as FileIcon } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export default function Imports() {
   const [csv, setCsv] = useState("");
@@ -10,13 +11,31 @@ export default function Imports() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (f: File) => {
-    if (!f.name.endsWith(".csv")) {
-      alert("Please upload a valid CSV file.");
+    if (f.name.endsWith(".csv")) {
+      setFileName(f.name);
+      f.text().then(setCsv);
+      setPreview(null);
+    } else if (f.name.endsWith(".xlsx") || f.name.endsWith(".xls")) {
+      setFileName(f.name);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: "array" });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const csvStr = XLSX.utils.sheet_to_csv(worksheet);
+          setCsv(csvStr);
+          setPreview(null);
+        } catch (err) {
+          alert("Failed to parse Excel file. Please ensure it is a valid spreadsheet.");
+        }
+      };
+      reader.readAsArrayBuffer(f);
+    } else {
+      alert("Please upload a valid CSV or Excel file.");
       return;
     }
-    setFileName(f.name);
-    f.text().then(setCsv);
-    setPreview(null); // Reset preview on new file
   };
 
   const onDragOver = (e: React.DragEvent) => {
@@ -38,9 +57,9 @@ export default function Imports() {
 
   return (
     <>
-      <h1 className="text-2xl font-bold text-slate-900">CSV Import</h1>
+      <h1 className="text-2xl font-bold text-slate-900">Data Import</h1>
       <p className="text-sm text-slate-500 mt-1 mb-6">
-        Preview, map and import existing company/contact data without overwriting source records.
+        Preview, map and import existing company/contact data without overwriting source records. Supports CSV and Excel.
       </p>
 
       <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
@@ -58,7 +77,7 @@ export default function Imports() {
         >
           <input
             type="file"
-            accept=".csv"
+            accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
             className="hidden"
             ref={fileInputRef}
             onChange={(e) => {
@@ -76,7 +95,7 @@ export default function Imports() {
             <>
               <UploadCloud className="w-12 h-12 text-slate-400 mb-3" />
               <p className="text-sm font-medium text-slate-700">Click to upload or drag and drop</p>
-              <p className="text-xs text-slate-500 mt-1">CSV files only</p>
+              <p className="text-xs text-slate-500 mt-1">CSV or Excel files (.xlsx, .xls)</p>
             </>
           )}
         </div>
