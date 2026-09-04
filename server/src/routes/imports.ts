@@ -34,7 +34,7 @@ importRouter.post("/preview", async (req: AuthRequest, res, next) => {
       jobTitle: ["title","job title","job_title"]
     };
     for (const [target, aliases] of Object.entries(targets)) {
-      const found = columns.find(c => aliases.includes(c.toLowerCase().trim()));
+      const found = columns.find((c: string) => aliases.includes(c.toLowerCase().trim()));
       if (found) mapping[target] = found;
     }
     res.json({ columns, mapping, preview: rows.slice(0,10), totalRecords: rows.length, errors: parsed.errors });

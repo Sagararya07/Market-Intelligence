@@ -28,7 +28,7 @@ accountRouter.get("/", async (req: AuthRequest, res, next) => {
 accountRouter.get("/:id", async (req: AuthRequest, res, next) => {
   try {
     const account = await prisma.account.findFirst({
-      where: { id: req.params.id, organizationId: req.user!.organizationId },
+      where: { id: String(req.params.id), organizationId: req.user!.organizationId },
       include: {
         contacts: true, sources: true, technologies: { include: { technology: true } },
         signals: { orderBy: { detectedAt: "desc" }, include: { classification: true } },

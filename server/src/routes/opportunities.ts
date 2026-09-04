@@ -15,12 +15,12 @@ opportunityRouter.get("/", async (req: AuthRequest, res, next) => {
 
 opportunityRouter.post("/recalculate/:accountId", async (req: AuthRequest, res, next) => {
   try {
-    const s = await scoreOpportunity(req.params.accountId, req.user!.organizationId);
-    const account = await prisma.account.findUnique({ where: { id: req.params.accountId }, include: { contacts: true } });
+    const s = await scoreOpportunity(String(req.params.accountId), req.user!.organizationId);
+    const account = await prisma.account.findUnique({ where: { id: String(req.params.accountId) }, include: { contacts: true } });
     if (!account) return res.status(404).json({ error: "Account not found" });
     const opportunity = await prisma.opportunity.create({
       data: {
-        organizationId: req.user!.organizationId, accountId: account.id, contactId: account.contacts.find(c=>c.isDecisionMaker)?.id,
+        organizationId: req.user!.organizationId, accountId: account.id, contactId: (account as any).contacts.find((c: any)=>c.isDecisionMaker)?.id,
         opportunityType: "BUYING_OPPORTUNITY", title: `${account.companyName} opportunity`, summary: "Generated from stored signals and qualification data.",
         buyerIntentScore: s.buyer, sellerIntentScore: s.seller, requirementScore: s.req, fitScore: s.fit, economicScore: s.economic,
         readinessScore: s.readiness, growthScore: s.growth, confidenceScore: s.evidence, opportunityScore: s.score,
