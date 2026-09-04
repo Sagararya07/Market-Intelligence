@@ -23,7 +23,7 @@ icpRouter.post("/", async (req: AuthRequest, res, next) => {
 icpRouter.get("/:id", async (req: AuthRequest, res, next) => {
   try {
     const item = await prisma.icpProfile.findFirst({
-      where: { id: req.params.id, organizationId: req.user!.organizationId },
+      where: { id: String(req.params.id), organizationId: req.user!.organizationId },
       include: { rules: true }
     });
     if (!item) return res.status(404).json({ error: "Profile not found" });
@@ -37,11 +37,11 @@ icpRouter.put("/:id", async (req: AuthRequest, res, next) => {
     
     // We will delete existing rules and recreate them to keep it simple
     await prisma.icpRule.deleteMany({
-      where: { icpProfileId: req.params.id, icpProfile: { organizationId: req.user!.organizationId } }
+      where: { icpProfileId: String(req.params.id), icpProfile: { organizationId: req.user!.organizationId } }
     });
     
     const item = await prisma.icpProfile.update({
-      where: { id: req.params.id, organizationId: req.user!.organizationId },
+      where: { id: String(req.params.id), organizationId: req.user!.organizationId },
       data: { name, description, isActive, rules: { create: rules } },
       include: { rules: true }
     });
@@ -52,7 +52,7 @@ icpRouter.put("/:id", async (req: AuthRequest, res, next) => {
 icpRouter.delete("/:id", async (req: AuthRequest, res, next) => {
   try {
     await prisma.icpProfile.delete({
-      where: { id: req.params.id, organizationId: req.user!.organizationId }
+      where: { id: String(req.params.id), organizationId: req.user!.organizationId }
     });
     res.status(204).send();
   } catch (e) { next(e); }
