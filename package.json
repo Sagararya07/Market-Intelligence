@@ -7,7 +7,7 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch server/src/app.ts",
     "dev:client": "vite client --config client/vite.config.ts",
-    "build": "npm run build:client && npm run build:server",
+    "build": "prisma generate --schema server/prisma/schema.prisma && npm run build:client && npm run build:server",
     "build:client": "vite build client --config client/vite.config.ts",
     "build:server": "tsc -p server/tsconfig.json",
     "server": "node server/dist/app.js",
