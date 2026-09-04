@@ -32,4 +32,8 @@ app.use("/api/matches", matchRouter);
 app.use(errorHandler);
 
 const port = Number(process.env.PORT ?? 4000);
-app.listen(port, () => console.log(`API listening on http://localhost:${port}`));
+if (process.env.NODE_ENV !== "production") {
+  app.listen(port, () => console.log(`API listening on http://localhost:${port}`));
+}
+
+export default app;
