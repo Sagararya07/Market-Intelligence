@@ -4,7 +4,7 @@ import { BarChart3, Building2, Radio, Target, FileText, GitMerge, Settings, LogO
 const links = [
   ["/","Dashboard",BarChart3],["/accounts","Accounts",Building2],["/signals","Signals",Radio],
   ["/opportunities","Opportunities",Target],["/requirements","Requirements",FileText],
-  ["/matches","Matches",GitMerge],["/icp","ICP Profiles",Target],["/settings","Settings",Settings]
+  ["/matches","Matches",GitMerge],["/icp","ICP Profiles",Target],["/settings","Data Management",Settings]
 ] as const;
 
 export default function Layout() {
