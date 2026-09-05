@@ -101,9 +101,7 @@ importRouter.get("/results", async (req: AuthRequest, res, next) => {
       orderBy: { createdAt: "desc" }
     });
 
-    const results = accounts.map(a => {
-      const founder = a.contacts.find(c => c.jobTitle?.toLowerCase().includes("founder"));
-      const dm = a.contacts.find(c => c.id !== founder?.id) || a.contacts[0];
+    const results = accounts.flatMap(a => {
       // Fallback to raw CSV data if fields are not natively mapped
       const raw = (a.sources[0]?.rawData as any) || {};
       const rawIndustry = raw["Industry"] || raw["Keywords"] || "";
@@ -133,7 +131,7 @@ importRouter.get("/results", async (req: AuthRequest, res, next) => {
       const enrichedDateObj = a.assessments[0]?.evaluatedAt || a.createdAt;
       const enrichedDate = enrichedDateObj ? new Date(enrichedDateObj).toISOString().split('T')[0] : "";
 
-      return {
+      const baseRow = {
         companyName: a.companyName || "",
         industries: [a.industry, a.subIndustry].filter(Boolean).join(", ") || rawIndustry || "Technology & Services",
         location: [a.city, a.state, a.country].filter(Boolean).join(", ") || "United States",
@@ -143,18 +141,32 @@ importRouter.get("/results", async (req: AuthRequest, res, next) => {
         companyContact: rawCompanyPhone || "+1 (555) 000-0000",
         employees: employeesField,
         revenue: revenueField,
-        founderName: founder?.fullName || "Not Provided",
-        cxoName: dm?.fullName || "Pending Identification",
-        cxoEmail: dm?.email || "Not Provided",
-        cxoPhone: dm?.phone || "Not Provided",
-        cxoSocialMedia: dm?.linkedinUrl || "",
-        cxoOther: dm?.jobTitle || "Executive",
+        founderName: a.contacts.find(c => c.jobTitle?.toLowerCase().includes("founder"))?.fullName || "Not Provided",
         eligible: isEligible,
         enrichedDate: enrichedDate
       };
+
+      if (a.contacts.length === 0) {
+        return [{
+          ...baseRow,
+          cxoName: "Pending Identification",
+          cxoEmail: "Not Provided",
+          cxoPhone: "Not Provided",
+          cxoSocialMedia: "",
+          cxoOther: "Executive"
+        }];
+      }
+
+      return a.contacts.map(contact => ({
+        ...baseRow,
+        cxoName: contact.fullName || "Pending Identification",
+        cxoEmail: contact.email || "Not Provided",
+        cxoPhone: contact.phone || "Not Provided",
+        cxoSocialMedia: contact.linkedinUrl || "",
+        cxoOther: contact.jobTitle || "Executive"
+      }));
     });
 
     res.json({ results });
   } catch (e) { next(e); }
 });
-
