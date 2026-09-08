@@ -18,7 +18,7 @@ accountRouter.get("/", async (req: AuthRequest, res, next) => {
       ...(filter === "new" ? { assessments: { none: {} } } : filter === "analyzed" ? { assessments: { some: {} } } : {})
     };
     const [items, total] = await Promise.all([
-      prisma.account.findMany({ where, include: { contacts: true, signals: { orderBy: { detectedAt: "desc" }, take: 1 }, assessments: { orderBy: { evaluatedAt: "desc" }, take: 1 } }, orderBy: { updatedAt: "desc" }, skip: (page-1)*pageSize, take: pageSize }),
+      prisma.account.findMany({ where, include: { contacts: true, signals: { orderBy: { detectedAt: "desc" }, take: 1 }, assessments: { orderBy: { evaluatedAt: "desc" }, take: 1 }, sources: { take: 1 } }, orderBy: { updatedAt: "desc" }, skip: (page-1)*pageSize, take: pageSize }),
       prisma.account.count({ where })
     ]);
     res.json({ items, total, page, pageSize });

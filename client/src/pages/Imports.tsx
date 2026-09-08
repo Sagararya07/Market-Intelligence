@@ -14,6 +14,7 @@ export default function Imports() {
   const [isLoadingResults, setIsLoadingResults] = useState(true);
   const [expandedColumns, setExpandedColumns] = useState({ company: false, decisionMaker: false });
   const [filterDate, setFilterDate] = useState("");
+  const [filterPhonePrefix, setFilterPhonePrefix] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchResults = async () => {
@@ -32,9 +33,19 @@ export default function Imports() {
     fetchResults();
   }, []);
   
-  const filteredResults = filterDate 
-    ? results.filter(r => r.enrichedDate && r.enrichedDate.startsWith(filterDate))
-    : results;
+  const filteredResults = results.filter(r => {
+    let match = true;
+    if (filterDate && !(r.enrichedDate && r.enrichedDate.startsWith(filterDate))) {
+      match = false;
+    }
+    if (filterPhonePrefix) {
+      const phone = String(r.cxoPhone || r.companyContact || "").trim();
+      if (!phone.startsWith(filterPhonePrefix)) {
+        match = false;
+      }
+    }
+    return match;
+  });
 
   const downloadCSV = () => {
     if (!filteredResults.length) {
@@ -43,14 +54,14 @@ export default function Imports() {
     }
     
     const headers = [
-      "Enriched Date", "Company Name", "Industries", "Location", "Requirement", "Company Social Media Links", 
+      "Enriched Date", "Company Name", "Industries", "Location", "Requirement", "Estimated Budget", "Company Social Media Links", 
       "Company Website", "Company Contact", "Number of Employees", "Revenue", "Founder Name",
       "CXO's Name", "CXO Email", "CXO Phone", "CXO Social Media", "CXO Other",
       "Eligible (Yes/No)"
     ];
     
     const rows = filteredResults.map(r => [
-      r.enrichedDate, r.companyName, r.industries, r.location, r.requirement, r.companySocialMedia,
+      r.enrichedDate, r.companyName, r.industries, r.location, r.requirement, r.budget, r.companySocialMedia,
       r.companyWebsite, r.companyContact, r.employees, r.revenue, r.founderName,
       r.cxoName, r.cxoEmail, r.cxoPhone, r.cxoSocialMedia, r.cxoOther,
       r.eligible
@@ -123,7 +134,7 @@ export default function Imports() {
         <div
           className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${
             isDragging
-              ? "border-blue-500 bg-blue-50"
+              ? "border-theme-blue bg-theme-blue/10"
               : "border-slate-300 hover:bg-slate-50 hover:border-slate-400"
           }`}
           onDragOver={onDragOver}
@@ -143,7 +154,7 @@ export default function Imports() {
           
           {csv ? (
             <>
-              <FileIcon className="w-12 h-12 text-blue-500 mb-3" />
+              <FileIcon className="w-12 h-12 text-theme-blue mb-3" />
               <p className="text-sm font-semibold text-slate-800">{fileName}</p>
               <p className="text-xs text-slate-500 mt-1">Click or drag a new file to replace</p>
             </>
@@ -180,7 +191,7 @@ export default function Imports() {
               Preview Data
             </button>
             <button
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors shadow-sm"
+              className="bg-theme-blue hover:bg-theme-blue text-white font-medium px-5 py-2.5 rounded-lg transition-colors shadow-sm"
               onClick={async () => {
                 setIsProcessing(true);
                 setProcessingMessage("Executing import... This may take a minute.");
@@ -216,7 +227,7 @@ export default function Imports() {
                   Cancel
                 </button>
                 <button
-                  className="bg-slate-900 hover:bg-black text-white font-medium px-5 py-2 rounded-lg transition-colors shadow-sm"
+                  className="bg-gradient-to-r from-theme-peach to-theme-blue text-slate-900 shadow-sm font-medium px-5 py-2 rounded-lg transition-colors shadow-sm"
                   onClick={async () => {
                     setIsProcessing(true);
                     setProcessingMessage("Executing import... This may take a minute.");
@@ -273,9 +284,12 @@ export default function Imports() {
 
       {/* Results Table Loading State */}
       {isLoadingResults && (
-        <div className="mt-12 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-12 p-12 flex flex-col items-center justify-center">
-          <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-          <h3 className="text-slate-700 font-medium">Loading Results Data...</h3>
+        <div className="fixed inset-0 bg-theme-blue/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-100">
+            <div className="w-12 h-12 border-4 border-theme-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Loading Results Data...</h3>
+            <p className="text-slate-500 text-sm">Please wait while we fetch the processed records.</p>
+          </div>
         </div>
       )}
 
@@ -292,16 +306,30 @@ export default function Imports() {
                 <label className="text-sm font-medium text-slate-700">Filter by Date:</label>
                 <input 
                   type="date" 
-                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:border-theme-blue focus:ring-1 focus:ring-theme-blue"
                   value={filterDate}
                   onChange={(e) => setFilterDate(e.target.value)}
                 />
-                {filterDate && (
-                  <button onClick={() => setFilterDate("")} className="text-sm text-slate-500 hover:text-slate-800">Clear</button>
+                
+                <label className="text-sm font-medium text-slate-700 ml-2">Phone Region:</label>
+                <select 
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:border-theme-blue focus:ring-1 focus:ring-theme-blue"
+                  value={filterPhonePrefix}
+                  onChange={(e) => setFilterPhonePrefix(e.target.value)}
+                >
+                  <option value="">All Regions</option>
+                  <option value="+91">India (+91)</option>
+                  <option value="+1">United States / Canada (+1)</option>
+                  <option value="+44">United Kingdom (+44)</option>
+                  <option value="+61">Australia (+61)</option>
+                </select>
+                
+                {(filterDate || filterPhonePrefix) && (
+                  <button onClick={() => { setFilterDate(""); setFilterPhonePrefix(""); }} className="text-sm text-slate-500 hover:text-slate-800 ml-2">Clear Filters</button>
                 )}
               </div>
               <button
-                className="bg-slate-900 hover:bg-black text-white font-medium px-4 py-2 rounded-lg transition-colors shadow-sm flex items-center gap-2"
+                className="bg-gradient-to-r from-theme-peach to-theme-blue text-slate-900 shadow-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm flex items-center gap-2"
                 onClick={downloadCSV}
               >
                 <Download className="w-4 h-4" /> Download CSV
@@ -312,7 +340,7 @@ export default function Imports() {
             <table className="w-full text-left text-sm text-slate-600 whitespace-nowrap">
               <thead className="bg-slate-100 border-b border-slate-200 text-slate-700 select-none">
                 <tr>
-                  <th colSpan={expandedColumns.company ? 10 : 1} onClick={() => setExpandedColumns(s => ({...s, company: !s.company}))} className="px-4 py-3 border-r border-slate-200 text-center font-bold cursor-pointer hover:bg-slate-200 transition-colors group">
+                  <th colSpan={expandedColumns.company ? 11 : 1} onClick={() => setExpandedColumns(s => ({...s, company: !s.company}))} className="px-4 py-3 border-r border-slate-200 text-center font-bold cursor-pointer hover:bg-slate-200 transition-colors group">
                     <div className="flex items-center justify-center gap-2">
                       Company Details
                       <span className="text-slate-400 bg-slate-200 rounded-full w-5 h-5 inline-flex items-center justify-center text-xs group-hover:bg-slate-300 transition-colors">
@@ -328,7 +356,7 @@ export default function Imports() {
                       </span>
                     </div>
                   </th>
-                  <th colSpan={2} className="px-4 py-3 text-center font-bold bg-blue-50/50">Status & Meta</th>
+                  <th colSpan={2} className="px-4 py-3 text-center font-bold bg-theme-blue/10/50">Status & Meta</th>
                 </tr>
                 <tr className="bg-white border-b border-slate-200 text-xs uppercase tracking-wider">
                   <th className="px-4 py-2 font-semibold border-r border-slate-100">Company Name</th>
@@ -337,6 +365,7 @@ export default function Imports() {
                       <th className="px-4 py-2 font-semibold">Industries</th>
                       <th className="px-4 py-2 font-semibold">Location</th>
                       <th className="px-4 py-2 font-semibold">Requirement</th>
+                      <th className="px-4 py-2 font-semibold">Estimated Budget</th>
                       <th className="px-4 py-2 font-semibold">Social Media Links</th>
                       <th className="px-4 py-2 font-semibold">Company Website</th>
                       <th className="px-4 py-2 font-semibold">Contact</th>
@@ -356,8 +385,8 @@ export default function Imports() {
                     </>
                   )}
                   
-                  <th className="px-4 py-2 font-semibold text-center bg-blue-50/50">Date Enriched</th>
-                  <th className="px-4 py-2 font-semibold text-center bg-blue-50/50">Eligible (Yes/No)</th>
+                  <th className="px-4 py-2 font-semibold text-center bg-theme-blue/10/50">Date Enriched</th>
+                  <th className="px-4 py-2 font-semibold text-center bg-theme-blue/10/50">Eligible (Yes/No)</th>
                 </tr>
               </thead>
               <tbody>
@@ -368,10 +397,27 @@ export default function Imports() {
                       <>
                         <td className="px-4 py-3 truncate max-w-[250px]" title={r.industries}>{r.industries || "-"}</td>
                         <td className="px-4 py-3 truncate max-w-[150px]" title={r.location}>{r.location || "-"}</td>
-                        <td className="px-4 py-3 truncate max-w-[250px]" title={r.requirement}>{r.requirement || "-"}</td>
-                        <td className="px-4 py-3"><a href={r.companySocialMedia} target="_blank" className="text-blue-600 hover:underline truncate max-w-[150px] inline-block">{r.companySocialMedia || "-"}</a></td>
-                        <td className="px-4 py-3"><a href={r.companyWebsite} target="_blank" className="text-blue-600 hover:underline truncate max-w-[150px] inline-block">{r.companyWebsite || "-"}</a></td>
-                        <td className="px-4 py-3 text-blue-600 truncate max-w-[150px]" title={r.companyContact}>{r.companyContact || "-"}</td>
+                        <td className="px-4 py-3">
+                          {r.requirement === "Pending Web Extraction" ? (
+                            <span className="text-slate-400 italic text-xs bg-slate-100/50 px-2 py-1 rounded border border-slate-100">Pending Extraction</span>
+                          ) : r.requirement === "No Requirement Detected" ? (
+                            <span className="text-slate-400 italic text-xs">No Requirement Detected</span>
+                          ) : (
+                            <div className="truncate max-w-[250px]" title={r.requirement}>{r.requirement || "-"}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-emerald-700">
+                          {r.budget === "Pending Web Extraction" ? (
+                            <span className="text-slate-400 italic text-xs bg-slate-100/50 px-2 py-1 rounded border border-slate-100">Pending Extraction</span>
+                          ) : r.budget === "No Requirement Detected" ? (
+                            <span className="text-slate-400 italic text-xs">-</span>
+                          ) : (
+                            r.budget || "-"
+                          )}
+                        </td>
+                        <td className="px-4 py-3"><a href={r.companySocialMedia} target="_blank" className="text-theme-blue hover:underline truncate max-w-[150px] inline-block">{r.companySocialMedia || "-"}</a></td>
+                        <td className="px-4 py-3"><a href={r.companyWebsite} target="_blank" className="text-theme-blue hover:underline truncate max-w-[150px] inline-block">{r.companyWebsite || "-"}</a></td>
+                        <td className="px-4 py-3 text-theme-blue truncate max-w-[150px]" title={r.companyContact}>{r.companyContact || "-"}</td>
                         <td className="px-4 py-3">{r.employees || "-"}</td>
                         <td className="px-4 py-3">{r.revenue || "-"}</td>
                         <td className="px-4 py-3 border-r border-slate-200 truncate max-w-[150px]" title={r.founderName}>{r.founderName || "-"}</td>
@@ -383,15 +429,15 @@ export default function Imports() {
                       <>
                         <td className="px-4 py-3 truncate max-w-[150px]" title={r.cxoEmail}>{r.cxoEmail || "-"}</td>
                         <td className="px-4 py-3 truncate max-w-[150px]" title={r.cxoPhone}>{r.cxoPhone || "-"}</td>
-                        <td className="px-4 py-3"><a href={r.cxoSocialMedia} target="_blank" className="text-blue-600 hover:underline truncate max-w-[150px] inline-block">{r.cxoSocialMedia || "-"}</a></td>
+                        <td className="px-4 py-3"><a href={r.cxoSocialMedia} target="_blank" className="text-theme-blue hover:underline truncate max-w-[150px] inline-block">{r.cxoSocialMedia || "-"}</a></td>
                         <td className="px-4 py-3 border-r border-slate-200 truncate max-w-[150px]" title={r.cxoOther}>{r.cxoOther || "-"}</td>
                       </>
                     )}
                     
-                    <td className="px-4 py-3 text-center bg-blue-50/20 text-slate-500 text-xs font-medium">
+                    <td className="px-4 py-3 text-center bg-theme-blue/10/20 text-slate-500 text-xs font-medium">
                       {r.enrichedDate || "-"}
                     </td>
-                    <td className="px-4 py-3 text-center bg-blue-50/20">
+                    <td className="px-4 py-3 text-center bg-theme-blue/10/20">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center justify-center min-w-[3rem] ${r.eligible === 'Yes' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
                         {r.eligible}
                       </span>
@@ -413,9 +459,9 @@ export default function Imports() {
 
       {/* Processing Modal */}
       {isProcessing && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <div className="fixed inset-0 bg-theme-blue/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-100">
+            <div className="w-12 h-12 border-4 border-theme-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <h3 className="text-lg font-bold text-slate-900 mb-1">Processing...</h3>
             <p className="text-slate-500 text-sm">{processingMessage}</p>
           </div>

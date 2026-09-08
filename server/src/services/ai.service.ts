@@ -1,8 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { z } from "zod";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.AI_API_KEY || "dummy",
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || process.env.AI_API_KEY || "dummy",
 });
 
 const ResultSchema = z.object({
@@ -50,12 +50,12 @@ async function fetchWebsiteData(url: string) {
 
 // Batch analysis function for the Intelligence Engine
 export async function analyzeAccountsBatch(accounts: any[]) {
-  if (!process.env.AI_API_KEY) {
-    throw new Error("AI_API_KEY is not set. Please add it to your .env file.");
+  if (!process.env.OPENAI_API_KEY && !process.env.AI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not set. Please add it to your .env file.");
   }
 
   const results = [];
-  const BATCH_SIZE = 5; // Process 5 accounts concurrently to speed up response time
+  const BATCH_SIZE = 2; // Process 2 accounts at a time to avoid API overload
 
   for (let i = 0; i < accounts.length; i += BATCH_SIZE) {
     const chunk = accounts.slice(i, i + BATCH_SIZE);
@@ -76,7 +76,7 @@ export async function analyzeAccountsBatch(accounts: any[]) {
       - An ICP Score (0 to 100) based on their size and industry.
       - A likely Pain Point they are facing (Base this on the real-world context if available).
       - A Market Signal (Base this strictly on the real-world context if available).
-      - A Requirement for B2B enterprise software (Base this strictly on their stated business needs in the real-world context).
+      - A Requirement for B2B enterprise software (Base this strictly on their stated business needs). Crucially, estimate a realistic project budget (budgetMin and budgetMax) based on their company size and revenue tier. Check the company's country/location. If they are in India, output the budget in INR. If they are in the UK, output in GBP. For others use USD. Ensure the scale is accurate to that country's market rates, and set budgetCurrency to the appropriate 3-letter currency code (e.g., INR, GBP, USD).
       
       Account Data:
       ${JSON.stringify({ id: account.id, companyName: account.companyName, industry: account.industry, employeeCount: account.employeeCount, revenueRange: account.revenueRange }, null, 2)}
@@ -91,26 +91,47 @@ export async function analyzeAccountsBatch(accounts: any[]) {
         "primaryProblem": "string",
         "marketSignal": { "title": "string", "type": "EXPANSION_SIGNAL|TECHNOLOGY_SIGNAL", "confidence": 0.9 },
         "painPoint": { "title": "string", "category": "Operations|Security|Sales", "severity": "HIGH|MEDIUM", "confidence": 0.8 },
-        "requirement": { "title": "string", "category": "string", "description": "string", "urgency": "HIGH|MEDIUM|LOW", "confidence": 0.85 }
+        "requirement": { "title": "string", "category": "string", "description": "string", "urgency": "HIGH|MEDIUM|LOW", "confidence": 0.85, "budgetMin": 50000, "budgetMax": 150000, "budgetCurrency": "USD" }
       }
       `;
 
-      try {
-        const msg = await anthropic.messages.create({
-          model: "claude-sonnet-5",
-          max_tokens: 1024,
-          messages: [{ role: "user", content: prompt }]
-        });
+      const availableModels = [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4-turbo"
+      ];
 
-        const text = msg.content[0].type === "text" ? msg.content[0].text : "";
-        if (!text) throw new Error("Empty response");
+      for (const model of availableModels) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const completion = await openai.chat.completions.create({
+              model: model,
+              messages: [{ role: "user", content: prompt }],
+              response_format: { type: "json_object" }
+            });
 
-        const sanitizedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-        return JSON.parse(sanitizedText);
-      } catch (err) {
-        console.error(`Failed to analyze account ${account.id}:`, err);
-        return null;
+            const text = completion.choices[0].message.content;
+            if (!text) break; // Try next model
+
+            const sanitizedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+            return JSON.parse(sanitizedText);
+          } catch (err: any) {
+            if (err?.status === 404) {
+              console.log(`Model ${model} not available, trying fallback...`);
+              break; // Try next model
+            }
+            if (err?.status === 429 || err?.status === 529 || err?.status === 503 || (err?.message && err.message.includes('overloaded'))) {
+              console.log(`API overloaded for ${account.name || account.companyName} (attempt ${attempt}/3), retrying in ${attempt * 5}s...`);
+              await new Promise(resolve => setTimeout(resolve, attempt * 5000));
+              continue; // Retry same model
+            }
+            console.error(`Failed to analyze account ${account.id} with ${model}:`, err?.message || err);
+            return null;
+          }
+        }
       }
+      console.error(`All OpenAI models failed for account ${account.id}.`);
+      return null;
     });
 
     // Wait for the chunk to finish concurrently
@@ -122,8 +143,8 @@ export async function analyzeAccountsBatch(accounts: any[]) {
 }
 
 export async function classifySignal(input: { title: string; content?: string }): Promise<IntelligenceResult> {
-  if (!process.env.AI_API_KEY) {
-    throw new Error("AI_API_KEY is not set. Please add it to your .env file.");
+  if (!process.env.OPENAI_API_KEY && !process.env.AI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not set. Please add it to your .env file.");
   }
 
   const prompt = `
@@ -144,20 +165,15 @@ export async function classifySignal(input: { title: string; content?: string })
   }
   `;
 
-  const msg = await anthropic.messages.create({
-    model: "claude-sonnet-5",
-    max_tokens: 1024,
-    messages: [
-      {
-        role: "user",
-        content: prompt
-      }
-    ]
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: prompt }],
+    response_format: { type: "json_object" }
   });
 
-  const text = msg.content[0].type === "text" ? msg.content[0].text : "";
+  const text = completion.choices[0].message.content;
   if (!text) {
-    throw new Error("Failed to generate content from Claude");
+    throw new Error("Failed to generate content from OpenAI");
   }
 
   const sanitizedText = text.replace(/```json/g, "").replace(/```/g, "").trim();

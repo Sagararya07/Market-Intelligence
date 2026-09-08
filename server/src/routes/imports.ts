@@ -110,7 +110,6 @@ importRouter.get("/results", async (req: AuthRequest, res, next) => {
 
       // Ensure fields are NEVER empty for the UI
       const nameLength = a.companyName?.length || 10;
-      const fallbackRequirement = "Enterprise digital transformation and scalable infrastructure solutions";
       const fallbackEmployees = `${nameLength * 10 + 50}-${nameLength * 25 + 100}`;
       
       const employeesField = a.employeeRange || a.employeeCount?.toString() || rawEmployees || fallbackEmployees;
@@ -130,12 +129,27 @@ importRouter.get("/results", async (req: AuthRequest, res, next) => {
       // Date enriched
       const enrichedDateObj = a.assessments[0]?.evaluatedAt || a.createdAt;
       const enrichedDate = enrichedDateObj ? new Date(enrichedDateObj).toISOString().split('T')[0] : "";
+      
+      const fallbackRequirement = a.assessments.length > 0 ? "No Requirement Detected" : "Pending Web Extraction";
+
+      const formatCurrency = (val: number | null, curr: string | null) => {
+        if (!val) return "";
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: curr || 'USD', maximumFractionDigits: 0 }).format(val);
+      };
+
+      const formatBudget = (reqs: any[]) => {
+        if (!reqs || reqs.length === 0) return fallbackRequirement;
+        const r = reqs[0];
+        if (!r.budgetMin) return "Unknown";
+        return `${formatCurrency(r.budgetMin, r.budgetCurrency)}${r.budgetMax ? ' - ' + formatCurrency(r.budgetMax, r.budgetCurrency) : '+'}`;
+      };
 
       const baseRow = {
         companyName: a.companyName || "",
         industries: [a.industry, a.subIndustry].filter(Boolean).join(", ") || rawIndustry || "Technology & Services",
         location: [a.city, a.state, a.country].filter(Boolean).join(", ") || "United States",
-        requirement: a.requirements.map(r => `${r.title}${r.description ? `: ${r.description}` : ''}`).join(" | ") || fallbackRequirement,
+        requirement: a.requirements.length > 0 ? a.requirements.map(r => `${r.title}${r.description ? `: ${r.description}` : ''}`).join(" | ") : fallbackRequirement,
+        budget: formatBudget(a.requirements),
         companySocialMedia: a.linkedinUrl || "",
         companyWebsite: a.website || `https://${a.companyName?.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
         companyContact: rawCompanyPhone || "+1 (555) 000-0000",

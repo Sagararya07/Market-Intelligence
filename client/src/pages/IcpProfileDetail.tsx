@@ -96,7 +96,7 @@ export default function IcpProfileDetail() {
           </div>
 
           <div className="bg-white border rounded-xl p-5 space-y-4">
-            <button onClick={handleSave} className="w-full bg-slate-900 text-white flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium hover:bg-slate-800">
+            <button onClick={handleSave} className="w-full bg-gradient-to-r from-theme-peach to-theme-blue text-slate-900 shadow-sm flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium hover:bg-slate-800">
               <Save size={16} /> Save Changes
             </button>
             <button onClick={handleDelete} className="w-full text-red-600 border border-red-200 bg-red-50 py-2 rounded-lg text-sm font-medium hover:bg-red-100">
@@ -109,7 +109,7 @@ export default function IcpProfileDetail() {
           <div className="bg-white border rounded-xl p-5">
             <div className="flex justify-between items-center mb-6">
               <h2 className="font-semibold">ICP Rules</h2>
-              <button onClick={addRule} className="text-sm font-medium text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded">
+              <button onClick={addRule} className="text-sm font-medium text-theme-blue flex items-center gap-1 hover:bg-theme-blue/10 px-2 py-1 rounded">
                 <Plus size={16} /> Add Rule
               </button>
             </div>

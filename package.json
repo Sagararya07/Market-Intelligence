@@ -30,6 +30,7 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.468.0",
     "multer": "^2.0.2",
+    "openai": "^6.49.0",
     "papaparse": "^5.5.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

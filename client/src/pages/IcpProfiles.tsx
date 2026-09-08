@@ -36,7 +36,7 @@ export default function IcpProfiles() {
           <h1 className="text-3xl font-bold text-slate-900">ICP Profiles</h1>
           <p className="text-slate-500 mt-1">Manage your Ideal Customer Profiles to guide the intelligence engine.</p>
         </div>
-        <button onClick={handleCreate} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition">
+        <button onClick={handleCreate} className="bg-theme-blue text-white px-4 py-2 rounded-lg font-medium hover:bg-theme-blue transition">
           Create Profile
         </button>
       </div>
@@ -66,7 +66,7 @@ export default function IcpProfiles() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <Link to={`/icp/${p.id}`} className="text-blue-600 hover:underline font-medium">Edit / View</Link>
+                  <Link to={`/icp/${p.id}`} className="text-theme-blue hover:underline font-medium">Edit / View</Link>
                 </td>
               </tr>
             ))}
