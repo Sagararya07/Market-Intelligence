@@ -24,13 +24,15 @@ intelligenceRouter.post("/run", async (req: AuthRequest, res, next) => {
 
     // Removed old data deletion to preserve existing analysis and save API resources
 
-    // Find all accounts that haven't been assessed yet
+    // Find a small batch of accounts that haven't been assessed yet
+    // LIMIT 2 to prevent Vercel 10s serverless timeout!
     const accounts = await prisma.account.findMany({
       where: { 
         organizationId: orgId,
         assessments: { none: {} } // Only get accounts that have NO ICP Assessment
       },
-      include: { contacts: true, technologies: true }
+      include: { contacts: true, technologies: true },
+      take: 2
     });
     
     // If all accounts are already analyzed, return early to save resources

@@ -9,8 +9,23 @@ export default function Dashboard(){
   const runEngine = async () => {
     setRunning(true);
     try {
-      const res = await api<any>("/intelligence/run", { method: "POST" });
-      alert(`Success! Scored ${res.stats.accountsScored} accounts. Generated ${res.stats.signalsGenerated} signals and ${res.stats.opportunitiesGenerated} opportunities.`);
+      let totalScored = 0;
+      let totalSignals = 0;
+      let totalOpps = 0;
+      let isDone = false;
+
+      while (!isDone) {
+        const res = await api<any>("/intelligence/run", { method: "POST" });
+        if (res.stats.accountsScored === 0) {
+          isDone = true;
+          break;
+        }
+        totalScored += res.stats.accountsScored;
+        totalSignals += res.stats.signalsGenerated;
+        totalOpps += res.stats.opportunitiesGenerated;
+      }
+      
+      alert(`Success! Scored ${totalScored} accounts. Generated ${totalSignals} signals and ${totalOpps} opportunities.`);
       await fetchDashboard();
     } catch (e: any) {
       alert("Failed to run engine: " + e.message);
