@@ -374,6 +374,8 @@ model Requirement {
   decisionAuthority String?
   status            RequirementStatus  @default(UNKNOWN)
   confidence        Float
+  declaredAt        DateTime?
+  sourceUrl         String?
   firstDetectedAt   DateTime           @default(now())
   lastDetectedAt    DateTime           @default(now())
   createdAt         DateTime           @default(now())

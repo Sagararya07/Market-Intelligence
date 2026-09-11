@@ -1,7 +1,34 @@
 import { useState, useRef, useEffect } from "react";
 import { api } from "../lib/api";
-import { UploadCloud, FileText as FileIcon, Download } from "lucide-react";
+import { UploadCloud, FileText as FileIcon, Download, Search, Eye, Users, Database, X } from "lucide-react";
 import * as XLSX from "xlsx";
+
+const ExpandableText = ({ text, className = "max-w-[250px]", isLink = false }: { text: string, className?: string, isLink?: boolean }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  if (!text || text === "-") return <span>-</span>;
+  
+  if (isLink) {
+    return (
+      <div 
+        onMouseEnter={() => setIsExpanded(true)}
+        onMouseLeave={() => setIsExpanded(false)}
+      >
+        <a href={text} target="_blank" rel="noopener noreferrer" className={`text-theme-blue hover:underline inline-block ${isExpanded ? "whitespace-normal break-all min-w-[200px]" : `truncate ${className}`}`} title={text}>{text}</a>
+      </div>
+    );
+  }
+  
+  return (
+    <div 
+      onClick={() => setIsExpanded(!isExpanded)}
+      className={`cursor-pointer transition-all duration-200 ${isExpanded ? "whitespace-normal break-words min-w-[200px]" : `truncate ${className}`}`}
+      title={isExpanded ? "Click to collapse" : "Click to expand"}
+    >
+      {text}
+    </div>
+  );
+};
 
 export default function Imports() {
   const [csv, setCsv] = useState("");
@@ -15,7 +42,46 @@ export default function Imports() {
   const [expandedColumns, setExpandedColumns] = useState({ company: false, decisionMaker: false });
   const [filterDate, setFilterDate] = useState("");
   const [filterPhonePrefix, setFilterPhonePrefix] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewingSheet, setViewingSheet] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const runEngine = async (force: boolean = false) => {
+    setRunning(true);
+    try {
+      if (force) {
+        if (!confirm("This will reset all existing intelligence data and rescan all accounts. Continue?")) {
+          setRunning(false);
+          return;
+        }
+        await api("/intelligence/reset", { method: "POST" });
+      }
+
+      let totalScored = 0;
+      let totalSignals = 0;
+      let totalOpps = 0;
+      let isDone = false;
+
+      while (!isDone) {
+        const res = await api<any>("/intelligence/run", { method: "POST" });
+        if (res.stats.accountsScored === 0) {
+          isDone = true;
+          break;
+        }
+        totalScored += res.stats.accountsScored;
+        totalSignals += res.stats.signalsGenerated;
+        totalOpps += res.stats.opportunitiesGenerated;
+      }
+      
+      alert(`Success! Scored ${totalScored} accounts. Generated ${totalSignals} signals and ${totalOpps} opportunities.`);
+      await fetchResults();
+    } catch (e: any) {
+      alert("Failed to run engine: " + e.message);
+    } finally {
+      setRunning(false);
+    }
+  };
 
   const fetchResults = async () => {
     try {
@@ -33,7 +99,57 @@ export default function Imports() {
     fetchResults();
   }, []);
   
+  
+  const sheetsMap = new Map<string, { records: any[], location: string, industry: string }>();
+  results.forEach(r => {
+    const locParts = (r.location || "United States").split(",");
+    const country = locParts[locParts.length - 1].trim();
+    const indParts = (r.industries || "Technology").split(",");
+    const industry = indParts[0].trim();
+    const sheetName = `${country} — ${industry}`;
+    if (!sheetsMap.has(sheetName)) {
+      sheetsMap.set(sheetName, { records: [], location: country, industry });
+    }
+    sheetsMap.get(sheetName)!.records.push(r);
+  });
+  const allSheets = Array.from(sheetsMap.entries()).map(([name, data]) => ({
+    name, ...data
+  })).sort((a, b) => b.records.length - a.records.length);
+  
+  const filteredSheets = allSheets.filter(s => 
+    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
+  const downloadSheet = (sheetName: string, records: any[]) => {
+    const headers = [
+      "Enriched Date", "Company Name", "Industries", "Location", "Requirement", "Estimated Budget", "Date Declared", "Source Link", "Company Social Media Links", 
+      "Company Website", "Company Contact", "Number of Employees", "Revenue", "Founder Name",
+      "CXO's Name", "CXO Email", "CXO Phone", "CXO Social Media", "CXO Other",
+      "Eligible (Yes/No)"
+    ];
+    const rows = records.map(r => [
+      r.enrichedDate, r.companyName, r.industries, r.location, r.requirement, r.budget, r.requirementDate, r.requirementSource, r.companySocialMedia,
+      r.companyWebsite, r.companyContact, r.employees, r.revenue, r.founderName,
+      r.cxoName, r.cxoEmail, r.cxoPhone, r.cxoSocialMedia, r.cxoOther,
+      r.eligible
+    ]);
+    const escapeCsv = (str: any) => `"${String(str || "").replace(/"/g, '""')}"`;
+    const csvContent = [headers.map(escapeCsv).join(","), ...rows.map(row => row.map(escapeCsv).join(","))].join("\\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Lumora_${sheetName.replace(/[^a-zA-Z0-9]/g, "_")}.csv`;
+    link.click();
+  };
+
   const filteredResults = results.filter(r => {
+    if (viewingSheet) {
+      const locParts = (r.location || "United States").split(",");
+      const country = locParts[locParts.length - 1].trim();
+      const indParts = (r.industries || "Technology").split(",");
+      const industry = indParts[0].trim();
+      if (`${country} — ${industry}` !== viewingSheet) return false;
+    }
     let match = true;
     if (filterDate && !(r.enrichedDate && r.enrichedDate.startsWith(filterDate))) {
       match = false;
@@ -54,14 +170,14 @@ export default function Imports() {
     }
     
     const headers = [
-      "Enriched Date", "Company Name", "Industries", "Location", "Requirement", "Estimated Budget", "Company Social Media Links", 
+      "Enriched Date", "Company Name", "Industries", "Location", "Requirement", "Estimated Budget", "Date Declared", "Source Link", "Company Social Media Links", 
       "Company Website", "Company Contact", "Number of Employees", "Revenue", "Founder Name",
       "CXO's Name", "CXO Email", "CXO Phone", "CXO Social Media", "CXO Other",
       "Eligible (Yes/No)"
     ];
     
     const rows = filteredResults.map(r => [
-      r.enrichedDate, r.companyName, r.industries, r.location, r.requirement, r.budget, r.companySocialMedia,
+      r.enrichedDate, r.companyName, r.industries, r.location, r.requirement, r.budget, r.requirementDate, r.requirementSource, r.companySocialMedia,
       r.companyWebsite, r.companyContact, r.employees, r.revenue, r.founderName,
       r.cxoName, r.cxoEmail, r.cxoPhone, r.cxoSocialMedia, r.cxoOther,
       r.eligible
@@ -124,12 +240,28 @@ export default function Imports() {
 
   return (
     <>
-      <h1 className="text-2xl font-bold text-slate-900">Data Import</h1>
-      <p className="text-sm text-slate-500 mt-1 mb-6">
-        Preview, map and import existing company/contact data without overwriting source records. Supports CSV and Excel.
-      </p>
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Data Management</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Import new records or access your grouped data library without overwriting source records.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={() => runEngine(true)} disabled={running} className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-5 py-2.5 rounded-lg text-sm font-bold transition-all shadow-sm disabled:opacity-50 flex gap-2 items-center">
+            {running ? "Scanning..." : "Force Re-scan All"}
+          </button>
+          <button onClick={() => runEngine(false)} disabled={running} className="bg-gradient-to-r from-theme-peach to-theme-blue text-slate-900 px-5 py-2.5 rounded-lg text-sm font-bold transition-all shadow-sm hover:shadow-md disabled:opacity-50 flex gap-2 items-center border-none">
+            <Database className="w-4 h-4" />
+            {running ? "Processing..." : "Run Intelligence Engine"}
+          </button>
+        </div>
+      </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="flex flex-col gap-4">
+          <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">Data Import</h2>
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex-1">
         {/* Drag and Drop Zone */}
         <div
           className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${
@@ -280,6 +412,52 @@ export default function Imports() {
             </div>
           </div>
         )}
+          </div>
+        </div>
+
+        {/* Data Library Box */}
+        <div className="flex flex-col gap-4">
+          <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">Data Library (ICP)</h2>
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden max-h-[500px]">
+            <div className="p-4 border-b border-slate-200 bg-slate-50">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input 
+                  type="text" 
+                  placeholder="Search sheets..." 
+                  className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-theme-blue text-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {filteredSheets.length === 0 && <div className="text-center text-slate-500 py-4 text-sm">No sheets found.</div>}
+              {filteredSheets.map((sheet, idx) => (
+                <div key={sheet.name} className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${viewingSheet === sheet.name ? 'border-theme-blue bg-theme-blue/5' : 'border-slate-100 hover:border-theme-blue/30 hover:bg-slate-50'}`}>
+                  <div className="flex-1 min-w-0 mr-4">
+                    <div className="font-semibold text-slate-800 text-sm truncate" title={sheet.name}>{sheet.name}</div>
+                    <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                      <Users className="w-3 h-3" /> {sheet.records.length} records
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setViewingSheet(viewingSheet === sheet.name ? null : sheet.name)} className={`p-1.5 rounded transition-colors ${viewingSheet === sheet.name ? 'text-white bg-theme-blue hover:bg-theme-blue/90' : 'text-theme-blue hover:bg-theme-blue/10'}`} title={viewingSheet === sheet.name ? "Close Sheet" : "View Sheet"}>
+                      {viewingSheet === sheet.name ? <X className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                    <button onClick={() => downloadSheet(sheet.name, sheet.records)} className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded transition-colors" title="Download CSV"><Download className="w-4 h-4" /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="bg-slate-50 border-t border-slate-200 p-3 flex justify-between text-xs font-medium text-slate-600">
+              <span>{allSheets.length} Sheets</span>
+              <span>{allSheets.reduce((sum, s) => sum + s.records.length, 0)} Records</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Results Table Loading State */}
@@ -298,8 +476,12 @@ export default function Imports() {
         <div className="mt-12 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-12">
           <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Processed Results</h2>
-              <p className="text-sm text-slate-500 mt-1">View and download your imported and evaluated leads.</p>
+              <h2 className="text-lg font-bold text-slate-900">
+                {viewingSheet ? `Processed Results: ${viewingSheet}` : "All Processed Results"}
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                {viewingSheet ? "Viewing filtered leads from the selected sheet." : "View and download your imported and evaluated leads."}
+              </p>
             </div>
             <div className="flex gap-4 items-center">
               <div className="flex items-center gap-2">
@@ -340,7 +522,7 @@ export default function Imports() {
             <table className="w-full text-left text-sm text-slate-600 whitespace-nowrap">
               <thead className="bg-slate-100 border-b border-slate-200 text-slate-700 select-none">
                 <tr>
-                  <th colSpan={expandedColumns.company ? 11 : 1} onClick={() => setExpandedColumns(s => ({...s, company: !s.company}))} className="px-4 py-3 border-r border-slate-200 text-center font-bold cursor-pointer hover:bg-slate-200 transition-colors group">
+                  <th colSpan={expandedColumns.company ? 13 : 1} onClick={() => setExpandedColumns(s => ({...s, company: !s.company}))} className="px-4 py-3 border-r border-slate-200 text-center font-bold cursor-pointer hover:bg-slate-200 transition-colors group">
                     <div className="flex items-center justify-center gap-2">
                       Company Details
                       <span className="text-slate-400 bg-slate-200 rounded-full w-5 h-5 inline-flex items-center justify-center text-xs group-hover:bg-slate-300 transition-colors">
@@ -366,6 +548,8 @@ export default function Imports() {
                       <th className="px-4 py-2 font-semibold">Location</th>
                       <th className="px-4 py-2 font-semibold">Requirement</th>
                       <th className="px-4 py-2 font-semibold">Estimated Budget</th>
+                      <th className="px-4 py-2 font-semibold">Date Declared</th>
+                      <th className="px-4 py-2 font-semibold">Source Link</th>
                       <th className="px-4 py-2 font-semibold">Social Media Links</th>
                       <th className="px-4 py-2 font-semibold">Company Website</th>
                       <th className="px-4 py-2 font-semibold">Contact</th>
@@ -391,19 +575,21 @@ export default function Imports() {
               </thead>
               <tbody>
                 {filteredResults.map((r, i) => (
-                  <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-slate-900 border-r border-slate-100 truncate max-w-[200px]" title={r.companyName}>{r.companyName}</td>
+                  <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors [&>td]:align-top">
+                    <td className="px-4 py-3 font-medium text-slate-900 border-r border-slate-100">
+                      <ExpandableText text={r.companyName} className="max-w-[200px]" />
+                    </td>
                     {expandedColumns.company && (
                       <>
-                        <td className="px-4 py-3 truncate max-w-[250px]" title={r.industries}>{r.industries || "-"}</td>
-                        <td className="px-4 py-3 truncate max-w-[150px]" title={r.location}>{r.location || "-"}</td>
+                        <td className="px-4 py-3"><ExpandableText text={r.industries} className="max-w-[250px]" /></td>
+                        <td className="px-4 py-3"><ExpandableText text={r.location} className="max-w-[150px]" /></td>
                         <td className="px-4 py-3">
                           {r.requirement === "Pending Web Extraction" ? (
                             <span className="text-slate-400 italic text-xs bg-slate-100/50 px-2 py-1 rounded border border-slate-100">Pending Extraction</span>
                           ) : r.requirement === "No Requirement Detected" ? (
                             <span className="text-slate-400 italic text-xs">No Requirement Detected</span>
                           ) : (
-                            <div className="truncate max-w-[250px]" title={r.requirement}>{r.requirement || "-"}</div>
+                            <ExpandableText text={r.requirement} className="max-w-[250px]" />
                           )}
                         </td>
                         <td className="px-4 py-3 font-medium text-emerald-700">
@@ -415,22 +601,24 @@ export default function Imports() {
                             r.budget || "-"
                           )}
                         </td>
-                        <td className="px-4 py-3"><a href={r.companySocialMedia} target="_blank" className="text-theme-blue hover:underline truncate max-w-[150px] inline-block">{r.companySocialMedia || "-"}</a></td>
-                        <td className="px-4 py-3"><a href={r.companyWebsite} target="_blank" className="text-theme-blue hover:underline truncate max-w-[150px] inline-block">{r.companyWebsite || "-"}</a></td>
-                        <td className="px-4 py-3 text-theme-blue truncate max-w-[150px]" title={r.companyContact}>{r.companyContact || "-"}</td>
+                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{r.requirementDate}</td>
+                        <td className="px-4 py-3"><ExpandableText text={r.requirementSource} isLink className="max-w-[150px]" /></td>
+                        <td className="px-4 py-3"><ExpandableText text={r.companySocialMedia} isLink className="max-w-[150px]" /></td>
+                        <td className="px-4 py-3"><ExpandableText text={r.companyWebsite} isLink className="max-w-[150px]" /></td>
+                        <td className="px-4 py-3 text-theme-blue"><ExpandableText text={r.companyContact} className="max-w-[150px]" /></td>
                         <td className="px-4 py-3">{r.employees || "-"}</td>
                         <td className="px-4 py-3">{r.revenue || "-"}</td>
-                        <td className="px-4 py-3 border-r border-slate-200 truncate max-w-[150px]" title={r.founderName}>{r.founderName || "-"}</td>
+                        <td className="px-4 py-3 border-r border-slate-200"><ExpandableText text={r.founderName} className="max-w-[150px]" /></td>
                       </>
                     )}
                     
-                    <td className="px-4 py-3 font-medium text-slate-900 border-r border-slate-100 truncate max-w-[150px]" title={r.cxoName}>{r.cxoName || "-"}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900 border-r border-slate-100"><ExpandableText text={r.cxoName} className="max-w-[150px]" /></td>
                     {expandedColumns.decisionMaker && (
                       <>
-                        <td className="px-4 py-3 truncate max-w-[150px]" title={r.cxoEmail}>{r.cxoEmail || "-"}</td>
-                        <td className="px-4 py-3 truncate max-w-[150px]" title={r.cxoPhone}>{r.cxoPhone || "-"}</td>
-                        <td className="px-4 py-3"><a href={r.cxoSocialMedia} target="_blank" className="text-theme-blue hover:underline truncate max-w-[150px] inline-block">{r.cxoSocialMedia || "-"}</a></td>
-                        <td className="px-4 py-3 border-r border-slate-200 truncate max-w-[150px]" title={r.cxoOther}>{r.cxoOther || "-"}</td>
+                        <td className="px-4 py-3"><ExpandableText text={r.cxoEmail} className="max-w-[150px]" /></td>
+                        <td className="px-4 py-3"><ExpandableText text={r.cxoPhone} className="max-w-[150px]" /></td>
+                        <td className="px-4 py-3"><ExpandableText text={r.cxoSocialMedia} isLink className="max-w-[150px]" /></td>
+                        <td className="px-4 py-3 border-r border-slate-200"><ExpandableText text={r.cxoOther} className="max-w-[150px]" /></td>
                       </>
                     )}
                     
@@ -464,6 +652,16 @@ export default function Imports() {
             <div className="w-12 h-12 border-4 border-theme-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <h3 className="text-lg font-bold text-slate-900 mb-1">Processing...</h3>
             <p className="text-slate-500 text-sm">{processingMessage}</p>
+          </div>
+        </div>
+      )}
+
+      {running && (
+        <div className="fixed inset-0 bg-theme-blue/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-100">
+            <div className="w-12 h-12 border-4 border-theme-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Running Intelligence...</h3>
+            <p className="text-slate-500 text-sm">Evaluating ICP fit, extracting market signals, and generating opportunities. This may take a few moments.</p>
           </div>
         </div>
       )}

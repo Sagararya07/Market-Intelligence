@@ -76,10 +76,10 @@ export async function analyzeAccountsBatch(accounts: any[]) {
       - An ICP Score (0 to 100) based on their size and industry.
       - A likely Pain Point they are facing (Base this on the real-world context if available).
       - A Market Signal (Base this strictly on the real-world context if available).
-      - A Requirement for B2B enterprise software (Base this strictly on their stated business needs). Crucially, estimate a realistic project budget (budgetMin and budgetMax) based on their company size and revenue tier. Check the company's country/location. If they are in India, output the budget in INR. If they are in the UK, output in GBP. For others use USD. Ensure the scale is accurate to that country's market rates, and set budgetCurrency to the appropriate 3-letter currency code (e.g., INR, GBP, USD).
+      - A Requirement for B2B enterprise software (Base this strictly on their stated business needs). Crucially, estimate a realistic project budget (budgetMin and budgetMax) based on their company size and revenue tier. Check the company's country/location. If they are in India, output the budget in INR. If they are in the UK, output in GBP. For others use USD. Ensure the scale is accurate to that country's market rates, and set budgetCurrency to the appropriate 3-letter currency code (e.g., INR, GBP, USD). Also extract the date when the requirement or budget was announced or declared into 'declaredAt' in YYYY-MM-DD format (or null if not found). Also provide the 'sourceUrl' where this requirement was found (if it's from the provided context, you can use the account website or the specific URL mentioned).
       
       Account Data:
-      ${JSON.stringify({ id: account.id, companyName: account.companyName, industry: account.industry, employeeCount: account.employeeCount, revenueRange: account.revenueRange }, null, 2)}
+      ${JSON.stringify({ id: account.id, companyName: account.companyName, industry: account.industry, employeeCount: account.employeeCount, revenueRange: account.revenueRange, website: account.website }, null, 2)}
       ${scrapedContext}
       
       You MUST return ONLY a raw JSON object with this exact structure (no markdown tags, no explanations):
@@ -91,7 +91,7 @@ export async function analyzeAccountsBatch(accounts: any[]) {
         "primaryProblem": "string",
         "marketSignal": { "title": "string", "type": "EXPANSION_SIGNAL|TECHNOLOGY_SIGNAL", "confidence": 0.9 },
         "painPoint": { "title": "string", "category": "Operations|Security|Sales", "severity": "HIGH|MEDIUM", "confidence": 0.8 },
-        "requirement": { "title": "string", "category": "string", "description": "string", "urgency": "HIGH|MEDIUM|LOW", "confidence": 0.85, "budgetMin": 50000, "budgetMax": 150000, "budgetCurrency": "USD" }
+        "requirement": { "title": "string", "category": "string", "description": "string", "urgency": "HIGH|MEDIUM|LOW", "confidence": 0.85, "budgetMin": 50000, "budgetMax": 150000, "budgetCurrency": "USD", "declaredAt": "2023-10-15", "sourceUrl": "https://example.com/press-release" }
       }
       `;
 

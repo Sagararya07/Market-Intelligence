@@ -144,12 +144,26 @@ importRouter.get("/results", async (req: AuthRequest, res, next) => {
         return `${formatCurrency(r.budgetMin, r.budgetCurrency)}${r.budgetMax ? ' - ' + formatCurrency(r.budgetMax, r.budgetCurrency) : '+'}`;
       };
 
+      const getRequirementDate = (reqs: any[]) => {
+        if (!reqs || reqs.length === 0) return "-";
+        const r = reqs[0];
+        if (!r.declaredAt) return "-";
+        return new Date(r.declaredAt).toISOString().split('T')[0];
+      };
+
+      const getRequirementSource = (reqs: any[]) => {
+        if (!reqs || reqs.length === 0) return "-";
+        return reqs[0].sourceUrl || "-";
+      };
+
       const baseRow = {
         companyName: a.companyName || "",
         industries: [a.industry, a.subIndustry].filter(Boolean).join(", ") || rawIndustry || "Technology & Services",
         location: [a.city, a.state, a.country].filter(Boolean).join(", ") || "United States",
         requirement: a.requirements.length > 0 ? a.requirements.map(r => `${r.title}${r.description ? `: ${r.description}` : ''}`).join(" | ") : fallbackRequirement,
         budget: formatBudget(a.requirements),
+        requirementDate: getRequirementDate(a.requirements),
+        requirementSource: getRequirementSource(a.requirements),
         companySocialMedia: a.linkedinUrl || "",
         companyWebsite: a.website || `https://${a.companyName?.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
         companyContact: rawCompanyPhone || "+1 (555) 000-0000",

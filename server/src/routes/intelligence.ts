@@ -5,6 +5,27 @@ import { requireAuth, AuthRequest } from "../middleware/auth.js";
 export const intelligenceRouter = Router();
 intelligenceRouter.use(requireAuth);
 
+intelligenceRouter.post("/reset", async (req: AuthRequest, res, next) => {
+  try {
+    const orgId = req.user!.organizationId;
+    const accounts = await prisma.account.findMany({ where: { organizationId: orgId }, select: { id: true } });
+    const accountIds = accounts.map(a => a.id);
+    
+    // Delete all intelligence data
+    await prisma.icpAssessment.deleteMany({ where: { accountId: { in: accountIds } } });
+    await prisma.marketSignal.deleteMany({ where: { organizationId: orgId } });
+    await prisma.opportunity.deleteMany({ where: { organizationId: orgId } });
+    await prisma.requirement.deleteMany({ where: { accountId: { in: accountIds } } });
+    await prisma.buyerIntent.deleteMany({ where: { accountId: { in: accountIds } } });
+    await prisma.painPoint.deleteMany({ where: { accountId: { in: accountIds } } });
+    await prisma.opportunityMatch.deleteMany({ where: { buyerAccountId: { in: accountIds } } });
+
+    res.json({ success: true, message: "Intelligence data reset successfully." });
+  } catch (e) {
+    next(e);
+  }
+});
+
 intelligenceRouter.post("/run", async (req: AuthRequest, res, next) => {
   try {
     const orgId = req.user!.organizationId;
@@ -178,7 +199,9 @@ intelligenceRouter.post("/run", async (req: AuthRequest, res, next) => {
               budgetCurrency: aiData.requirement.budgetCurrency || "USD",
               status: "POTENTIAL",
               confidence: aiData.requirement.confidence || 0.8,
-              urgency: aiData.requirement.urgency || "MEDIUM"
+              urgency: aiData.requirement.urgency || "MEDIUM",
+              declaredAt: aiData.requirement.declaredAt ? new Date(aiData.requirement.declaredAt) : null,
+              sourceUrl: aiData.requirement.sourceUrl || null
             }
           });
           requirementId = req.id;
