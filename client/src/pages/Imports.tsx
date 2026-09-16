@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { api } from "../lib/api";
 import { UploadCloud, FileText as FileIcon, Download, Search, Eye, Users, Database, X } from "lucide-react";
 import * as XLSX from "xlsx";
+import { useSearchParams } from "react-router-dom";
 
 const ExpandableText = ({ text, className = "max-w-[250px]", isLink = false }: { text: string, className?: string, isLink?: boolean }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -31,6 +32,9 @@ const ExpandableText = ({ text, className = "max-w-[250px]", isLink = false }: {
 };
 
 export default function Imports() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const metricFilter = searchParams.get("metric");
+
   const [csv, setCsv] = useState("");
   const [fileName, setFileName] = useState("");
   const [preview, setPreview] = useState<any>();
@@ -159,6 +163,14 @@ export default function Imports() {
       if (!phone.startsWith(filterPhonePrefix)) {
         match = false;
       }
+    }
+    if (metricFilter && r.tags) {
+      if (metricFilter === "New Uploads" && !r.tags.isUnprocessed) match = false;
+      if (metricFilter === "New Signals" && !r.tags.hasSignals) match = false;
+      if (metricFilter === "Active Requirements" && !r.tags.hasRequirements) match = false;
+      if (metricFilter === "Hot Opportunities" && !r.tags.isHot) match = false;
+      if (metricFilter === "Warm Opportunities" && !r.tags.isWarm) match = false;
+      if (metricFilter === "Qualified Accounts" && !r.tags.isQualified) match = false;
     }
     return match;
   });
@@ -329,8 +341,8 @@ export default function Imports() {
                 setProcessingMessage("Executing import... This may take a minute.");
                 try {
                   const p = await api<any>("/imports/preview", { method: "POST", body: JSON.stringify({ csv }) });
-                  const d = await api<any>("/imports/execute", { method: "POST", body: JSON.stringify({ csv, mapping: p.mapping }) });
-                  alert(`Success! Imported ${d.job.validRecords} records. Duplicates skipped: ${d.job.duplicateRecords}.`);
+                  const d = await api<any>("/imports/execute", { method: "POST", body: JSON.stringify({ csv, mapping: p.mapping, fileName }) });
+                  alert(`Success! Processed ${d.job.totalRecords} rows (${d.job.validRecords} new companies, ${d.job.duplicateRecords} existing companies updated).`);
                   setCsv("");
                   setFileName("");
                   fetchResults();
@@ -366,9 +378,9 @@ export default function Imports() {
                     try {
                       const d = await api<any>("/imports/execute", {
                         method: "POST",
-                        body: JSON.stringify({ csv, mapping: preview.mapping }),
+                        body: JSON.stringify({ csv, mapping: preview.mapping, fileName }),
                       });
-                      alert(`Success! Imported ${d.job.validRecords} records. Duplicates skipped: ${d.job.duplicateRecords}.`);
+                      alert(`Success! Processed ${d.job.totalRecords} rows (${d.job.validRecords} new companies, ${d.job.duplicateRecords} existing companies updated).`);
                       setCsv("");
                       setFileName("");
                       setPreview(null);
@@ -477,10 +489,10 @@ export default function Imports() {
           <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
             <div>
               <h2 className="text-lg font-bold text-slate-900">
-                {viewingSheet ? `Processed Results: ${viewingSheet}` : "All Processed Results"}
+                {viewingSheet ? `Processed Results: ${viewingSheet}` : metricFilter ? `Results: ${metricFilter}` : "All Processed Results"}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
-                {viewingSheet ? "Viewing filtered leads from the selected sheet." : "View and download your imported and evaluated leads."}
+                {viewingSheet ? "Viewing filtered leads from the selected sheet." : metricFilter ? "Viewing filtered results from dashboard." : "View and download your imported and evaluated leads."}
               </p>
             </div>
             <div className="flex gap-4 items-center">
@@ -506,8 +518,8 @@ export default function Imports() {
                   <option value="+61">Australia (+61)</option>
                 </select>
                 
-                {(filterDate || filterPhonePrefix) && (
-                  <button onClick={() => { setFilterDate(""); setFilterPhonePrefix(""); }} className="text-sm text-slate-500 hover:text-slate-800 ml-2">Clear Filters</button>
+                {(filterDate || filterPhonePrefix || metricFilter) && (
+                  <button onClick={() => { setFilterDate(""); setFilterPhonePrefix(""); setSearchParams(new URLSearchParams()); }} className="text-sm text-slate-500 hover:text-slate-800 ml-2">Clear Filters</button>
                 )}
               </div>
               <button

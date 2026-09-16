@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { BarChart3, Building2, Radio, Target, FileText, GitMerge, Settings, LogOut, Library, Sparkles, Code, ChevronDown, ChevronRight, Database } from "lucide-react";
+import { BarChart3, Building2, Radio, Target, FileText, GitMerge, Settings, LogOut, Library, Sparkles, Code, ChevronDown, ChevronRight, Database, PieChart } from "lucide-react";
 
 const mainLinks = [
   ["/","Dashboard",BarChart3],
-  ["/data-management","Data Management",Database]
+  ["/data-management","Data Management (Scraped)",Database],
+  ["/data-analytics","Data Analytics",PieChart]
 ] as const;
 
 const devLinks = [
